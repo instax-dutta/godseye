@@ -1,17 +1,15 @@
 # Node modules and dependencies
 node_modules/
-
-# Build outputs
-build/
-dist/
+api_check.js
 
 # System files
-.DS_Store
 .env
+.DS_Store
 *.log
-*.tmp
-*.swp
 
 # Vercel/Netlify
-.netlify/
 .vercel/
+
+# Package files
+package.json
+package-lock.json
