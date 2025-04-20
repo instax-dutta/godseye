@@ -28,6 +28,8 @@ const initialWebsites = [
   'https://webgpt.racer.news',
 ];
 
+let lastSites = [];
+
 async function ensureWebsites() {
   // Add all initialWebsites if not present
   const res = await fetch(`${API_BASE}/websites`);
@@ -44,42 +46,59 @@ async function ensureWebsites() {
   }
 }
 
+function renderWebsites(sites) {
+  if (!sites.length) {
+    websitesDiv.innerHTML = '<p>No websites added yet.</p>';
+    return;
+  }
+  let html = '<div class="scroll-x"><table class="monitor-table"><thead><tr><th>Name</th><th>URL</th><th>Status</th><th>Resp. Time</th><th>Last Checked</th><th>Changed</th><th>History</th></tr></thead><tbody>';
+  for (const site of sites) {
+    let latest = site.latest;
+    html += `<tr class="${latest ? (latest.isUp ? 'row-up' : 'row-down') : ''}">
+      <td>${site.name || '-'}</td>
+      <td><a href="${site.url}" target="_blank">${site.url}</a></td>
+      <td>${latest ? (latest.isUp ? '<span class=\"status-up\">Up</span>' : '<span class=\"status-down\">Down</span>') : '<span class=\"status-unknown\">No Data</span>'}</td>
+      <td>${latest ? latest.responseTime + ' ms' : '-'}</td>
+      <td>${latest ? new Date(latest.timestamp).toLocaleString() : '-'}</td>
+      <td>${latest ? (latest.contentChanged ? 'Yes' : 'No') : '-'}</td>
+      <td><button class="history-btn" onclick="showDetails('${site._id}','${site.name || ''}','${site.url}')">View</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+  websitesDiv.innerHTML = html;
+}
+
 async function loadWebsites() {
-  websitesDiv.innerHTML = '<div class="loader"></div>';
+  // If we have previous data, show it while fetching new
+  if (lastSites.length) {
+    renderWebsites(lastSites);
+  } else {
+    websitesDiv.innerHTML = '<div class="loader"></div>';
+  }
   try {
     const res = await fetch(`${API_BASE}/websites`);
     const sites = await res.json();
-    if (!sites.length) {
-      websitesDiv.innerHTML = '<p>No websites added yet.</p>';
-      return;
-    }
-    let html = '<div class="scroll-x"><table class="monitor-table"><thead><tr><th>Name</th><th>URL</th><th>Status</th><th>Resp. Time</th><th>Last Checked</th><th>Changed</th><th>History</th></tr></thead><tbody>';
-    for (const site of sites) {
+    // For each site, fetch its latest result (in parallel)
+    const siteData = await Promise.all(sites.map(async site => {
       let latest = null;
-      let results = [];
       try {
         const r = await fetch(`${API_BASE}/results/${site._id}`);
         if (r.status === 404) {
           latest = null;
         } else {
-          results = await r.json();
+          const results = await r.json();
           latest = results[0];
         }
       } catch {}
-      html += `<tr class="${latest ? (latest.isUp ? 'row-up' : 'row-down') : ''}">
-        <td>${site.name || '-'}</td>
-        <td><a href="${site.url}" target="_blank">${site.url}</a></td>
-        <td>${latest ? (latest.isUp ? '<span class="status-up">Up</span>' : '<span class="status-down">Down</span>') : '<span class="status-unknown">No Data</span>'}</td>
-        <td>${latest ? latest.responseTime + ' ms' : '-'}</td>
-        <td>${latest ? new Date(latest.timestamp).toLocaleString() : '-'}</td>
-        <td>${latest ? (latest.contentChanged ? 'Yes' : 'No') : '-'}</td>
-        <td><button class="history-btn" onclick="showDetails('${site._id}','${site.name || ''}','${site.url}')">View</button></td>
-      </tr>`;
-    }
-    html += '</tbody></table></div>';
-    websitesDiv.innerHTML = html;
+      return { ...site, latest };
+    }));
+    lastSites = siteData;
+    renderWebsites(siteData);
   } catch {
-    websitesDiv.innerHTML = '<p style="color:#dc2626">Failed to load websites.</p>';
+    // Keep previous data on error
+    if (!lastSites.length) {
+      websitesDiv.innerHTML = '<p style="color:#dc2626">Failed to load websites.</p>';
+    }
   }
 }
 
@@ -97,7 +116,7 @@ window.showDetails = async function(id, name, url) {
     for (const r of results) {
       tableHtml += `<tr class="${r.isUp ? 'row-up' : 'row-down'}">
         <td>${new Date(r.timestamp).toLocaleString()}</td>
-        <td>${r.isUp ? '<span class="status-up">Up</span>' : '<span class="status-down">Down</span>'}</td>
+        <td>${r.isUp ? '<span class=\"status-up\">Up</span>' : '<span class=\"status-down\">Down</span>'}</td>
         <td>${r.responseTime} ms</td>
         <td>${r.contentChanged ? 'Yes' : 'No'}</td>
         <td>${r.error || '-'}</td>
