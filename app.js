@@ -1,4 +1,4 @@
-const API_BASE = 'https://wmapi.sdad.pro/api';
+const API_BASE = '/api';
 const websitesDiv = document.getElementById('websites');
 const detailsDiv = document.getElementById('details');
 
