@@ -24,5 +24,12 @@ h2 { color: #60a5fa; margin-bottom: 1rem; font-weight: 700; }
 ::-webkit-scrollbar { width: 8px; background: #23233a; }
 ::-webkit-scrollbar-thumb { background: #29294d; border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: #fbbf24; }
+.add-site-form { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+.add-site-form input[type="url"] { flex: 1; padding: 0.7rem 1rem; border-radius: 8px; border: 2px solid #29294d; background: #23233a; color: #f1f5f9; font-size: 1.1rem; }
+.add-site-form input[type="url"]:focus { outline: none; border-color: #fbbf24; box-shadow: 0 0 0 2px #fbbf2480; }
+.add-site-form button { background: linear-gradient(90deg, #0ea5e9 0%, #a21caf 100%); color: #fbbf24; border: none; border-radius: 8px; padding: 0.7rem 2rem; font-weight: 700; font-size: 1.1rem; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px #0ea5e940; }
+.add-site-form button:hover { background: linear-gradient(90deg, #a21caf 0%, #0ea5e9 100%); color: #fff; box-shadow: 0 2px 16px #a21caf60; }
+.remove-btn { background: none; color: #f43f5e; border: none; font-size: 1.3rem; cursor: pointer; margin-left: 0.5rem; vertical-align: middle; transition: color 0.2s; }
+.remove-btn:hover { color: #fbbf24; }
 /* Funky accent font */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;700;900&display=swap');

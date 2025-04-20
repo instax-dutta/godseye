@@ -2,17 +2,15 @@ const API_BASE = '/api';
 const websitesDiv = document.getElementById('websites');
 const detailsDiv = document.getElementById('details');
 
-const initialWebsites = [
+// Only include real, working websites for initialWebsites (unique only)
+const initialWebsites = Array.from(new Set([
   'https://12labs.xyz',
   'https://anonchat.space',
   'https://race3d.store',
   'https://racer.news',
   'https://sdad.pro',
-  'https://sdnayak.pp.ua',
-  'https://sdnayak.pro',
   'https://webgpt.app',
   'https://wordai.app',
-  'https://zengodz.pp.ua',
   'https://n8n.sdad.pro',
   'https://paste.sdad.pro',
   'https://send.sdad.pro',
@@ -25,8 +23,7 @@ const initialWebsites = [
   'https://pdf.sdad.pro',
   'https://ytapi.sdad.pro',
   'https://atapi.sdad.pro',
-  'https://webgpt.racer.news',
-];
+]));
 
 let lastSites = [];
 
@@ -47,26 +44,65 @@ async function ensureWebsites() {
 }
 
 function renderWebsites(sites) {
-  if (!sites.length) {
-    websitesDiv.innerHTML = '<p>No websites added yet.</p>';
+  // Filter out sites that are not reachable or have never had a successful check
+  // Also filter duplicates by url
+  const seen = new Set();
+  const filtered = sites.filter(site => site.latest !== null && !seen.has(site.url) && seen.add(site.url));
+  if (!filtered.length) {
+    websitesDiv.innerHTML = '<p>No monitored websites with data yet.</p>';
     return;
   }
-  let html = '<div class="scroll-x"><table class="monitor-table"><thead><tr><th>Name</th><th>URL</th><th>Status</th><th>Resp. Time</th><th>Last Checked</th><th>Changed</th><th>History</th></tr></thead><tbody>';
-  for (const site of sites) {
+  let html = '<div class="scroll-x"><table class="monitor-table"><thead><tr><th>URL</th><th>Status</th><th>Resp. Time</th><th>Last Checked</th><th>Changed</th><th>History</th><th></th></tr></thead><tbody>';
+  for (const site of filtered) {
     let latest = site.latest;
-    html += `<tr class="${latest ? (latest.isUp ? 'row-up' : 'row-down') : ''}">
-      <td>${site.name || '-'}</td>
+    html += `<tr class="${latest.isUp ? 'row-up' : 'row-down'}">
       <td><a href="${site.url}" target="_blank">${site.url}</a></td>
-      <td>${latest ? (latest.isUp ? '<span class=\"status-up\">Up</span>' : '<span class=\"status-down\">Down</span>') : '<span class=\"status-unknown\">No Data</span>'}</td>
-      <td>${latest ? latest.responseTime + ' ms' : '-'}</td>
-      <td>${latest ? new Date(latest.timestamp).toLocaleString() : '-'}</td>
-      <td>${latest ? (latest.contentChanged ? 'Yes' : 'No') : '-'}</td>
-      <td><button class="history-btn" onclick="showDetails('${site._id}','${site.name || ''}','${site.url}')">View</button></td>
+      <td>${latest.isUp ? '<span class=\"status-up\">Up</span>' : '<span class=\"status-down\">Down</span>'}</td>
+      <td>${latest.responseTime + ' ms'}</td>
+      <td>${new Date(latest.timestamp).toLocaleString()}</td>
+      <td>${latest.contentChanged ? 'Yes' : 'No'}</td>
+      <td><button class="history-btn" onclick="showDetails('${site._id}','${site.url}','${site.url}')">View</button></td>
+      <td><button class="remove-btn" title="Remove" onclick="removeSite('${site._id}','${site.url}')">🗑️</button></td>
     </tr>`;
   }
   html += '</tbody></table></div>';
   websitesDiv.innerHTML = html;
 }
+
+// Add site form handler
+const addForm = document.getElementById('add-site-form');
+if (addForm) {
+  addForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const urlInput = document.getElementById('add-site-url');
+    const url = urlInput.value.trim();
+    if (!url) return;
+    addForm.querySelector('button').disabled = true;
+    try {
+      await fetch(`${API_BASE}/websites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, checkInterval: 5 })
+      });
+      urlInput.value = '';
+      loadWebsites();
+    } catch {
+      alert('Failed to add website.');
+    }
+    addForm.querySelector('button').disabled = false;
+  };
+}
+
+// Remove site handler
+window.removeSite = async function(id, url) {
+  if (!confirm(`Remove monitoring for ${url}?`)) return;
+  try {
+    await fetch(`${API_BASE}/websites/${id}` , { method: 'DELETE' });
+    loadWebsites();
+  } catch {
+    alert('Failed to remove website.');
+  }
+};
 
 async function loadWebsites() {
   // If we have previous data, show it while fetching new
@@ -97,7 +133,7 @@ async function loadWebsites() {
   } catch {
     // Keep previous data on error
     if (!lastSites.length) {
-      websitesDiv.innerHTML = '<p style="color:#dc2626">Failed to load websites.</p>';
+      websitesDiv.innerHTML = '<p style=\"color:#dc2626\">Failed to load websites.</p>';
     }
   }
 }
@@ -107,12 +143,12 @@ window.showDetails = async function(id, name, url) {
   try {
     const res = await fetch(`${API_BASE}/results/${id}`);
     if (res.status === 404) {
-      detailsDiv.innerHTML = `<div class='no-history'><h3>No monitoring history for ${name || url}</h3><button class='close-btn' onclick='closeDetails()'>✕</button></div>`;
+      detailsDiv.innerHTML = `<div class='no-history'><h3>No monitoring history for ${url}</h3><button class='close-btn' onclick='closeDetails()'>✕</button></div>`;
       return;
     }
     const results = await res.json();
     let chartHtml = '<div class="chart-container"><canvas id="chart"></canvas></div>';
-    let tableHtml = `<h3>History for ${name || url} <button class='close-btn' onclick='closeDetails()'>✕</button></h3><div class="scroll-x"><table class="history-table"><thead><tr><th>Checked At</th><th>Status</th><th>Resp. Time</th><th>Changed</th><th>Error</th></tr></thead><tbody>`;
+    let tableHtml = `<h3>History for ${url} <button class='close-btn' onclick='closeDetails()'>✕</button></h3><div class="scroll-x"><table class="history-table"><thead><tr><th>Checked At</th><th>Status</th><th>Resp. Time</th><th>Changed</th><th>Error</th></tr></thead><tbody>`;
     for (const r of results) {
       tableHtml += `<tr class="${r.isUp ? 'row-up' : 'row-down'}">
         <td>${new Date(r.timestamp).toLocaleString()}</td>
